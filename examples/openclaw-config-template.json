@@ -1,0 +1,101 @@
+{
+  "$schema": "https://openclaw.dev/schema/config.json",
+  "gateway": {
+    "port": 18789,
+    "bind": "127.0.0.1",
+    "auth": {
+      "enabled": true,
+      "tokens": [
+        {
+          "name": "admin",
+          "token": "REPLACE_WITH_STRONG_TOKEN",
+          "permissions": ["*"],
+          "expiresAt": "2027-12-31T23:59:59Z"
+        },
+        {
+          "name": "agent-executor",
+          "token": "REPLACE_WITH_STRONG_TOKEN",
+          "permissions": ["chat", "sessions:read", "sessions:write"],
+          "expiresAt": "2027-12-31T23:59:59Z"
+        },
+        {
+          "name": "monitoring",
+          "token": "REPLACE_WITH_STRONG_TOKEN",
+          "permissions": ["sessions:read", "health:read"],
+          "expiresAt": "2027-12-31T23:59:59Z"
+        }
+      ]
+    },
+    "tls": {
+      "enabled": false,
+      "cert": "/etc/openclaw/tls/server.crt",
+      "key": "/etc/openclaw/tls/server.key"
+    },
+    "rateLimit": {
+      "enabled": true,
+      "requestsPerMinute": 60,
+      "burstSize": 10
+    }
+  },
+  "agents": {
+    "defaultPermissionMode": "default",
+    "sandboxEnabled": true,
+    "maxBudgetUsd": 5.0,
+    "dailyBudgetUsd": 50.0,
+    "budgetAlertThreshold": 0.8,
+    "defaultAllowedTools": [
+      "Read",
+      "Grep",
+      "Glob"
+    ],
+    "disallowedTools": [
+      "Bash(rm:*)",
+      "Bash(dd:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Write(/etc/*)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "provider": "docker",
+    "docker": {
+      "image": "openclaw/sandbox:latest",
+      "cpuLimit": "2",
+      "memoryLimit": "2g",
+      "networkMode": "none",
+      "readOnlyRootFilesystem": true,
+      "securityOpt": ["no-new-privileges"],
+      "capDrop": ["ALL"],
+      "volumes": [
+        {
+          "host": "/workspace",
+          "container": "/workspace",
+          "readOnly": false
+        }
+      ]
+    }
+  },
+  "workspace": {
+    "root": "/home/openclaw/workspace",
+    "allowParentAccess": false,
+    "excludePaths": [
+      "~/.ssh",
+      "~/.aws",
+      "~/.openclaw/openclaw.json",
+      "/etc",
+      "/var"
+    ]
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "auditLog": "/var/log/openclaw/audit.log",
+    "redactSecrets": true
+  },
+  "monitoring": {
+    "enabled": true,
+    "metricsPort": 9090,
+    "healthCheckPath": "/health"
+  }
+}

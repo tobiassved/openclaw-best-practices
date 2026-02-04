@@ -1,0 +1,51 @@
+# Secure Agent Sandbox Dockerfile
+FROM ubuntu:22.04
+
+LABEL maintainer="OpenClaw Security Team"
+LABEL description="Hardened sandbox for AI agent execution"
+
+# Create unprivileged user
+RUN useradd -m -u 1000 -s /bin/bash agent && \
+    mkdir -p /workspace && \
+    chown agent:agent /workspace
+
+# Install minimal required tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    git \
+    python3 \
+    python3-pip \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Claude Code (example - adjust for your installation method)
+# RUN npm install -g claude-code
+
+# Security: Remove unnecessary packages
+RUN apt-get purge -y \
+    apt \
+    dpkg \
+    && apt-get autoremove -y \
+    && rm -rf /var/cache/apt/* /var/lib/apt/lists/*
+
+# Security: Remove shells from unnecessary users
+RUN sed -i 's|/bin/bash|/usr/sbin/nologin|g' /etc/passwd && \
+    sed -i 's|/bin/sh|/usr/sbin/nologin|g' /etc/passwd && \
+    usermod -s /bin/bash agent
+
+# Create restricted tmp directory
+RUN mkdir -p /tmp && \
+    chmod 1777 /tmp
+
+# Drop to unprivileged user
+USER agent
+WORKDIR /workspace
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD [ "echo", "healthy" ]
+
+# No entrypoint - will be provided at runtime
+CMD ["/bin/bash"]

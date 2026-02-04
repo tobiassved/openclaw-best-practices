@@ -1,0 +1,125 @@
+# Prometheus Alert Rules for OpenClaw
+
+groups:
+  - name: openclaw_cost_alerts
+    interval: 1m
+    rules:
+      - alert: HighAPICost
+        expr: rate(openclaw_api_cost_usd_sum[1h]) > 50
+        for: 5m
+        labels:
+          severity: warning
+          component: cost
+        annotations:
+          summary: "High API cost detected"
+          description: "API costs exceed $50/hour: ${{ $value | humanize }}/hour"
+          dashboard: "http://grafana/d/openclaw/cost"
+
+      - alert: DailyBudgetExceeded
+        expr: openclaw_budget_remaining_usd < 0
+        for: 1m
+        labels:
+          severity: critical
+          component: cost
+        annotations:
+          summary: "Daily budget exceeded"
+          description: "User {{ $labels.user_id }} has exceeded their daily budget"
+
+  - name: openclaw_security_alerts
+    interval: 30s
+    rules:
+      - alert: SecurityViolation
+        expr: rate(openclaw_security_violations_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "Security violation detected"
+          description: "{{ $value }} security violations in last 5 minutes (type: {{ $labels.violation_type }})"
+          runbook: "https://docs/runbooks/security-violation"
+
+      - alert: UnauthorizedAccess
+        expr: rate(openclaw_auth_failures_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High authentication failure rate"
+          description: "{{ $value }} authentication failures per second"
+
+  - name: openclaw_performance_alerts
+    interval: 1m
+    rules:
+      - alert: HighSessionDuration
+        expr: histogram_quantile(0.95, openclaw_session_duration_seconds_bucket) > 600
+        for: 10m
+        labels:
+          severity: warning
+          component: performance
+        annotations:
+          summary: "Agent sessions taking too long"
+          description: "P95 session duration is {{ $value }}s (threshold: 600s)"
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 2048
+        for: 5m
+        labels:
+          severity: warning
+          component: resources
+        annotations:
+          summary: "High memory usage"
+          description: "OpenClaw using {{ $value }}MB RAM (threshold: 2GB)"
+
+  - name: openclaw_reliability_alerts
+    interval: 1m
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(openclaw_tool_invocations_total{status="error"}[5m])
+            /
+            rate(openclaw_tool_invocations_total[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: error
+          component: reliability
+        annotations:
+          summary: "High tool error rate"
+          description: "{{ $value | humanizePercentage }} of tool invocations failing"
+
+      - alert: AgentStuck
+        expr: openclaw_active_sessions > 0 and rate(openclaw_tool_invocations_total[5m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+          component: reliability
+        annotations:
+          summary: "Agent appears stuck"
+          description: "{{ $value }} active sessions but no tool activity for 10 minutes"
+
+      - alert: ServiceDown
+        expr: up{job="openclaw-gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: availability
+        annotations:
+          summary: "OpenClaw gateway is down"
+          description: "Cannot reach OpenClaw gateway"
+          runbook: "https://docs/runbooks/service-down"
+
+  - name: openclaw_rate_limit_alerts
+    interval: 1m
+    rules:
+      - alert: RateLimitExceeded
+        expr: rate(openclaw_rate_limit_exceeded_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: abuse
+        annotations:
+          summary: "Rate limit frequently exceeded"
+          description: "User {{ $labels.user_id }} hitting rate limits frequently"
